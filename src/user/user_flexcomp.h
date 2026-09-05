@@ -70,8 +70,10 @@ class mjCFlexcomp {
                 int          error_sz,
                 const mjVFS* vfs = nullptr);
   void LoadGMSH(mjCModel* model, mjResource* resource);
-  void LoadGMSH41(char* buffer, int binary, int nodeend, int nodebegin, int elemend, int elembegin);
-  void LoadGMSH22(char* buffer, int binary, int nodeend, int nodebegin, int elemend, int elembegin);
+  void LoadGMSH41(
+      const char* buffer, int binary, int nodeend, int nodebegin, int elemend, int elembegin);
+  void LoadGMSH22(
+      const char* buffer, int binary, int nodeend, int nodebegin, int elemend, int elembegin);
 
 
   int  GridID(int ix, int iy);

@@ -627,6 +627,52 @@ TEST_F(UserFlexTest, LoadMSHBinaryFTETWILD_22_Success) {
   mj_deleteModel(m);
 }
 
+TEST_F(UserFlexTest, LoadGMSHTruncatedAfterHeaderFails) {
+  // the header parser must stay within the (non null-terminated) buffer
+  static constexpr char msh[] = "$MeshFormat\n4.1 0 8";
+  static constexpr char xml[] = R"(
+  <mujoco>
+    <worldbody>
+      <flexcomp name="f" type="gmsh" dim="3" file="truncated.msh"/>
+    </worldbody>
+  </mujoco>
+  )";
+  mjVFS vfs;
+  mj_defaultVFS(&vfs);
+  ASSERT_EQ(mj_addBufferVFS(&vfs, "truncated.msh", msh, sizeof(msh) - 1), 0);
+  std::array<char, 1024> error;
+  mjSpec* spec = mj_parseXMLString(xml, &vfs, error.data(), error.size());
+  EXPECT_THAT(spec, IsNull());
+  EXPECT_THAT(error.data(), HasSubstr("GMSH file missing"));
+  if (spec) mj_deleteSpec(spec);
+  mj_deleteVFS(&vfs);
+}
+
+TEST_F(UserFlexTest, LoadGMSHFromVFSTwice) {
+  // the loader must not modify the resource buffer, otherwise a second load of
+  // the same file from a VFS fails
+  const char* files[] = {"cube_41_ascii_vol_gmshApp",
+                         "cube_22_ascii_vol_gmshApp"};
+  for (const char* file : files) {
+    const std::string dir = GetTestDataFilePath("user/testdata/");
+    const std::string xml = std::string(file) + ".xml";
+    const std::string msh = std::string(file) + ".msh";
+    mjVFS vfs;
+    mj_defaultVFS(&vfs);
+    ASSERT_EQ(mj_addFileVFS(&vfs, dir.c_str(), xml.c_str()), 0);
+    ASSERT_EQ(mj_addFileVFS(&vfs, dir.c_str(), msh.c_str()), 0);
+    std::array<char, 1024> error;
+    for (int i = 0; i < 2; i++) {
+      mjModel* m = mj_loadXML(xml.c_str(), &vfs, error.data(), error.size());
+      ASSERT_THAT(m, NotNull())
+          << file << " load " << i << ": " << error.data();
+      EXPECT_EQ(m->nflexvert, 14) << file;
+      mj_deleteModel(m);
+    }
+    mj_deleteVFS(&vfs);
+  }
+}
+
 TEST_F(UserFlexTest, LoadMSHASCII_41_Success) {
   const std::string xml_path =
       GetTestDataFilePath("user/testdata/cube_41_ascii_vol_gmshApp.xml");

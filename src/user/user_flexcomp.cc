@@ -1421,7 +1421,7 @@ bool mjCFlexcomp::MakeGMSH(
 
 // load GMSH format 4.1
 void mjCFlexcomp::LoadGMSH41(
-    char* buffer, int binary, int nodeend, int nodebegin, int elemend, int elembegin) {
+    const char* buffer, int binary, int nodeend, int nodebegin, int elemend, int elembegin) {
   // header size
   constexpr int kGmsh41HeaderSize = 52;
   // base for node tags, to be subtracted from element data
@@ -1538,7 +1538,6 @@ void mjCFlexcomp::LoadGMSH41(
   // ascii elements
   if (binary == 0) {
     // convert element char buffer to stringstream
-    buffer[elemend] = 0;
     stringstream ss(std::string(buffer + elembegin, elemend - elembegin));
 
     // read header
@@ -1656,7 +1655,7 @@ void mjCFlexcomp::LoadGMSH41(
 
 // load GMSH format 2.2
 void mjCFlexcomp::LoadGMSH22(
-    char* buffer, int binary, int nodeend, int nodebegin, int elemend, int elembegin) {
+    const char* buffer, int binary, int nodeend, int nodebegin, int elemend, int elembegin) {
   // number of nodes
   size_t numNodes = 0;
 
@@ -1753,7 +1752,6 @@ void mjCFlexcomp::LoadGMSH22(
   // ascii elements
   if (binary == 0) {
     // convert element char buffer to stringstream
-    buffer[elemend] = 0;
     stringstream ss(std::string(buffer + elembegin, elemend - elembegin));
     std::string  line;
 
@@ -1953,8 +1951,8 @@ void mjCFlexcomp::LoadGMSH22(
 // load GMSH file from resource
 void mjCFlexcomp::LoadGMSH(mjCModel* model, mjResource* resource) {
   // get buffer from resource
-  char* buffer    = 0;
-  int   buffer_sz = mju_readResource(resource, (const void**)&buffer);
+  const char* buffer    = 0;
+  int         buffer_sz = mju_readResource(resource, (const void**)&buffer);
 
   // check buffer
   if (buffer_sz < 0) {
@@ -1965,10 +1963,11 @@ void mjCFlexcomp::LoadGMSH(mjCModel* model, mjResource* resource) {
     throw mjCError(NULL, "GMSH file must begin with $MeshFormat");
   }
 
-  // check version, determine ascii or binary
-  double version;
-  int    binary;
-  if (sscanf(buffer + 11, "%lf %d", &version, &binary) != 2) {
+  // check version, determine ascii or binary; the buffer is not null-terminated, so parse a copy
+  double      version;
+  int         binary;
+  std::string header(buffer + 11, mjMIN(buffer_sz - 11, 64));
+  if (sscanf(header.c_str(), "%lf %d", &version, &binary) != 2) {
     throw mjCError(NULL, "Could not read GMSH file header");
   }
   if (mju_round(100 * version) != 220 && mju_round(100 * version) != 410) {
